@@ -1,3 +1,14 @@
+/*In the event of a FooError or BarError, the app should send an email alert to a recipient you specify in a config file (.env).
+
+BizzErrors (roughly one-third of the time) should not trigger email alerts.
+
+Each alert email should have a subject that looks like this: ALERT: a BarError occurred.
+
+The body should summarize what happened and include the error message (err.message) and the stack trace (err.stack).
+
+sendEmail*/
+
+
 'use strict';
 
 const express = require('express');
@@ -8,6 +19,8 @@ const morgan = require('morgan');
 require('dotenv').config();
 
 const {logger} = require('./utilities/logger');
+const {email} = require('/emailer');
+
 // these are custom errors we've created
 const {FooError, BarError, BizzError} = require('./errors');
 
@@ -27,9 +40,22 @@ app.use(morgan('common', {stream: logger.stream}));
 // for any GET request, we'll run our `russianRoulette` function
 app.get('*', russianRoulette);
 
-// YOUR MIDDLEWARE FUNCTION should be activated here using
-// `app.use()`. It needs to come BEFORE the `app.use` call
-// below, which sends a 500 and error message to the client
+app.use((err, req, res, next) => {
+
+  if (err == 'FooError' || err == 'BarError' ) {
+    logger.info(`An error message is being sent`);
+
+var data = {
+ from: process.env.ALERT_FROM_EMAIL,
+ to: process.env.ALERT_TO_EMAIL,
+ subject: `Alert a ${err.name} has occured`,
+ text: `There has been an error. The error message is ${err.stack}`,
+ html: "<p>HTML version</p>"
+};
+  email.sendEmail(data);
+ }
+  next();
+});
 
 app.use((err, req, res, next) => {
   logger.error(err);
